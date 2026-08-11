@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - master
-      # Bootstrap: lets the first deployment happen from the branch this was
-      # built on, before it is merged. Remove this line once it is on master.
-      - claude/pironman-multi-business-deploy-6iyvym
   # Lets the deployment be re-verified without a commit.
   workflow_dispatch:
 
