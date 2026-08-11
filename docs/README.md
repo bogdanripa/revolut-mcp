@@ -20,7 +20,8 @@ Complete documentation for **revolut-mcp** — a Model Context Protocol server f
 
 Tools are organized by scope. Each scope has its own reference page:
 
-- **[Auth](reference/auth/README.md)** — authorize the app and exchange the code for tokens (stdio only; hosted connections get `get_connection_status` instead)
+- **[Auth](reference/auth/README.md)** — authorize the app and exchange the code for tokens *(stdio only)*
+- **[Connection](reference/connection/README.md)** — which business, environment and permissions this connection has *(hosted only)*
 - **[Accounts](reference/accounts/README.md)** — list accounts, balances, and bank details
 - **[Transactions](reference/transactions/README.md)** — transaction history and detail
 - **[Counterparties](reference/counterparties/README.md)** — manage payees
