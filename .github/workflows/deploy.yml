@@ -104,7 +104,20 @@ jobs:
               -d "{\"image\": \"${IMAGE}:latest\"}" \
               "https://api-coolify.bogdanripa.com/apps/${APP}/refresh" || echo 000)
             case "$code" in
-              2*) cat /tmp/out; echo; exit 0 ;;
+              2*)
+                cat /tmp/out; echo
+                # A 200 is not proof either. The control plane answers
+                # {"updated": false} when it believes the deployed digest
+                # already matches the tag, and then does nothing — which is
+                # indistinguishable from success until you ask what is actually
+                # serving. If its bookkeeping has drifted ahead of the running
+                # container, this is the only place that catches it.
+                serving_this_build && exit 0
+                echo "::error::the control plane accepted the deploy but ${GITHUB_SHA::7} never started serving"
+                echo "if the response said \"updated\": false, its recorded digest has drifted ahead of the"
+                echo "running container — the container needs recreating, not restarting"
+                echo "check: apps_get ${APP} (compare deployed_digest with the container's image)"
+                exit 1 ;;
               408|522|524)
                 # Edge timeout: inconclusive, not a failure. Re-POSTing here
                 # would stack a second deploy on top of the running one, so
