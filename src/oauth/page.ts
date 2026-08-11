@@ -219,9 +219,12 @@ export function renderConnectPage(options: ConnectPageOptions): string {
       </div>
 
       <div class="step"><span class="n">3</span><div>
-        <h2>Copy the Client ID</h2>
-        <p>Revolut shows a <em>ClientID</em> next to the new certificate — copy that and paste it
-          below.</p>
+        <h2>Click the certificate, then copy the URL</h2>
+        <p>The Client ID isn't shown when you create the certificate. <strong>Click the certificate
+          you just made</strong>, in the <em>API certificates</em> list — a panel opens on the right
+          with <em>ClientID</em> and a Copy button.</p>
+        <p>Easier: once that panel is open, just copy your browser's <strong>whole address
+          bar</strong> and paste it below. The ID is in the URL and we'll pick it out.</p>
         <p>The certificate starts as <em>Access disabled</em>. Don't press <strong>Enable
           access</strong> there: it runs the same Revolut approval as the button below, but
           starting it from the portal loses track of which assistant asked, and it dead-ends.
@@ -229,10 +232,11 @@ export function renderConnectPage(options: ConnectPageOptions): string {
           got an error page, no harm done — just carry on here.)</p>
       </div></div>
       <div class="indent">
-        <label for="revolut_client_id">Client ID</label>
+        <label for="revolut_client_id">Client ID — or the page URL you copied</label>
         <input id="revolut_client_id" name="revolut_client_id" type="text" required
           autocomplete="off" spellcheck="false" autocapitalize="off"
-          placeholder="e.g. tf7B236yJgMRWjMXdfVOhoU9..." value="${clientIdValue}">
+          placeholder="tf7B236yJgMRWjM… or https://…/settings/apis?…&amp;clientId=…"
+          value="${clientIdValue}">
         <p class="hintline">Next you'll approve on Revolut's own screen, where it asks which
           permissions to grant. Tick at least <em>Read your account details</em>; add the payment
           permissions only if you want your assistant to be able to move money.</p>

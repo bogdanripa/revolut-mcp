@@ -136,6 +136,26 @@ export function looksLikeRevolutClientId(value: string): boolean {
   return /^[A-Za-z0-9._~-]{8,128}$/.test(value.trim());
 }
 
+/**
+ * Accepts either a bare Client ID or the Revolut page URL it appears in.
+ *
+ * The ID is genuinely hard to find: it is not shown when the certificate is
+ * created, only in a side panel after clicking the certificate in the list. But
+ * clicking it also puts `clientId` in the address bar, and copying the URL is
+ * something anyone can do without being told where to look. So take both, and
+ * let the address bar be the easy path.
+ */
+export function extractRevolutClientId(value: string): string {
+  const trimmed = value.trim();
+  if (!/^https?:\/\//i.test(trimmed)) return trimmed;
+  try {
+    const fromQuery = new URL(trimmed).searchParams.get('clientId');
+    return fromQuery?.trim() || trimmed;
+  } catch {
+    return trimmed;
+  }
+}
+
 export class OAuthProvider {
   constructor(
     private readonly store: OAuthStore,
@@ -224,11 +244,13 @@ export class OAuthProvider {
   ): Promise<{ linkId: string; authorizationUrl: string }> {
     await this.validateAuthorizeRequest(req);
 
-    const revolutClientId = input.revolutClientId.trim();
+    const revolutClientId = extractRevolutClientId(input.revolutClientId);
     if (!looksLikeRevolutClientId(revolutClientId)) {
       throw new RevolutLinkError(
         "That doesn't look like a Revolut Client ID.",
-        'Copy it from Revolut → Settings → APIs → your certificate. It has no spaces.'
+        'In Revolut → Settings → APIs, click the certificate you created: the ClientID appears in ' +
+          'the panel on the right, with a Copy button. You can also just paste this whole page URL ' +
+          'from your browser — the ID is in it and we will pick it out.'
       );
     }
 

@@ -1,5 +1,10 @@
 import { createHash, generateKeyPairSync, randomBytes } from 'crypto';
-import { OAuthError, OAuthProvider, RevolutLinkError } from '../src/oauth/provider.js';
+import {
+  extractRevolutClientId,
+  OAuthError,
+  OAuthProvider,
+  RevolutLinkError,
+} from '../src/oauth/provider.js';
 import { InMemoryOAuthStore } from '../src/oauth/store.js';
 import { InMemoryTenantStore } from '../src/tenants/store.js';
 import { CannedResponse, mockHttp } from './mocks/http.mock.js';
@@ -385,5 +390,49 @@ describe('OAuthProvider', () => {
     const hashed = createHash('sha256').update(authCode).digest('hex');
     expect(await store.takeCode(hashed)).not.toBeNull();
     expect(pkce.verifier).toBeTruthy();
+  });
+});
+
+describe('extractRevolutClientId', () => {
+  const ID = 'tf7B236yJgMRWjMXdfVOhoU9myvhBrtCoWVNej3HRUA';
+
+  it('passes a bare id through, trimmed', () => {
+    expect(extractRevolutClientId(ID)).toBe(ID);
+    expect(extractRevolutClientId(`  ${ID}  `)).toBe(ID);
+  });
+
+  /**
+   * The ID is not shown when the certificate is created — only in a side panel
+   * after clicking it. Clicking also puts it in the address bar, which is the
+   * one place a person can copy from without being told where to look.
+   */
+  it('pulls the id out of the page URL, production and sandbox', () => {
+    expect(
+      extractRevolutClientId(`https://business.revolut.com/settings/apis?tab=business-api&clientId=${ID}`)
+    ).toBe(ID);
+    expect(
+      extractRevolutClientId(
+        `https://sandbox-business.revolut.com/settings/apis?tab=business-api&clientId=${ID}`
+      )
+    ).toBe(ID);
+  });
+
+  it('leaves a URL without a clientId alone, so the error names the real problem', () => {
+    const url = 'https://business.revolut.com/settings/apis?tab=business-api';
+    expect(extractRevolutClientId(url)).toBe(url);
+  });
+
+  it('does not mistake a bare id containing a colon-slash for a URL', () => {
+    expect(extractRevolutClientId('not-a-url')).toBe('not-a-url');
+  });
+
+  it('accepts a pasted URL end to end at beginLink', async () => {
+    const { provider } = build();
+    const { request } = await registerAndAuthorize(provider);
+    const { authorizationUrl } = await provider.beginLink(request, {
+      revolutClientId: `https://sandbox-business.revolut.com/settings/apis?tab=business-api&clientId=${ID}`,
+      environment: 'sandbox',
+    });
+    expect(new URL(authorizationUrl).searchParams.get('client_id')).toBe(ID);
   });
 });
