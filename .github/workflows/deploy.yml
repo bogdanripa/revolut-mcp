@@ -26,6 +26,7 @@ jobs:
   # container, no cold start. Uploaded on every push; publishes in about a second.
   frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Package the static site
@@ -39,6 +40,10 @@ jobs:
 
   deploy:
     runs-on: ubuntu-latest
+    # An arm64 build under QEMU takes ~5 minutes cold. Anything approaching this
+    # is wedged, not slow — one such run sat on the build step for an hour before
+    # anyone looked. Fail fast and leave a red mark instead of burning the day.
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
@@ -139,6 +144,7 @@ jobs:
   smoke:
     needs: [deploy, frontend]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       # Waiting for a 200 is not enough: during a redeploy the OUTGOING container
       # is still serving, so /health answers immediately and the steps below then
