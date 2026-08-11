@@ -81,14 +81,38 @@ jobs:
       # retried rather than believed.
       - name: Trigger deploy on the Pi
         run: |
+          # The box sits behind Cloudflare, which abandons a request at ~100s.
+          # A deploy routinely takes longer than that, so the refresh call
+          # answers 524 while the deploy is still running and goes on to
+          # succeed. The response code is therefore not the outcome — /health
+          # reporting this commit is. Ask it before believing a timeout.
+          serving_this_build() {
+            for j in $(seq 1 30); do
+              seen=$(curl -s --max-time 10 "$APP_URL/health" \
+                | sed -n 's/.*"commit":"\([^"]*\)".*/\1/p')
+              [ "$seen" = "$GITHUB_SHA" ] && return 0
+              echo "  waiting for ${GITHUB_SHA::7}, /health says ${seen:-nothing}"
+              sleep 10
+            done
+            return 1
+          }
+
           for i in $(seq 1 10); do
-            code=$(curl -sS -o /tmp/out -w '%{http_code}' -X POST \
+            code=$(curl -sS -o /tmp/out -w '%{http_code}' --max-time 180 -X POST \
               -H "Authorization: Bearer ${{ secrets.PAAS_KEY }}" \
               -H "Content-Type: application/json" \
               -d "{\"image\": \"${IMAGE}:latest\"}" \
               "https://api-coolify.bogdanripa.com/apps/${APP}/refresh" || echo 000)
             case "$code" in
               2*) cat /tmp/out; echo; exit 0 ;;
+              408|522|524)
+                # Edge timeout: inconclusive, not a failure. Re-POSTing here
+                # would stack a second deploy on top of the running one, so
+                # watch instead.
+                echo "attempt $i: $code — the edge timed out; the deploy may still be running"
+                serving_this_build && { echo "deploy landed despite the timeout"; exit 0; }
+                echo "::error::the new build never started serving after a $code"
+                echo "check: apps_logs ${APP}"; exit 1 ;;
               404|000|503|504) echo "attempt $i: $code, retrying"; sleep 10 ;;
               401) echo "PAAS_KEY is not this app's deploy key"; exit 1 ;;
               502) cat /tmp/out; echo
