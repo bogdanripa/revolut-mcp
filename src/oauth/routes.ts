@@ -221,6 +221,34 @@ export async function handleOAuthRequest(
       return true;
     }
 
+    if (code && !linkId) {
+      // Revolut approved something we never asked for. The cause is usually
+      // benign and worth naming: pressing "Enable access" on the certificate in
+      // the Revolut portal runs this very same approval, but Revolut builds
+      // that link itself, so it carries no reference to any connection of ours.
+      // Nothing here is salvageable — the code belongs to a request we did not
+      // make, and we do not know which client was waiting — but the person is
+      // one step from success and should be told that rather than left to
+      // guess what they broke.
+      sendHtml(
+        res,
+        400,
+        renderNoticePage({
+          title: 'Almost — but start this from your assistant',
+          message:
+            'Revolut approved the access, but the approval was started from the Revolut portal ' +
+            '(usually the "Enable access" button), so we have no record of which connection it ' +
+            'belongs to.',
+          hint:
+            'Nothing is broken and nothing needs undoing. Go back to your assistant and start the ' +
+            'connection from there — it sends you through this same Revolut approval, and that ' +
+            'one we can complete. Your Client ID has not changed.',
+        }),
+        { 'Set-Cookie': clear }
+      );
+      return true;
+    }
+
     if (!code || !linkId) {
       sendHtml(
         res,

@@ -157,6 +157,17 @@ export function renderConnectPage(options: ConnectPageOptions): string {
       : ''
   }
 
+  <div class="warn" style="margin-top:0;margin-bottom:1.25rem">
+    <p><strong>First: your Revolut Business account must be fully verified.</strong>
+      If Settings → APIs shows a <em>Verify identity</em> card instead of an
+      <em>API certificates</em> list, Revolut has not finished checking the business and no API
+      access exists yet — there is nothing to connect until it has. Click that card and complete
+      the document checks Revolut asks for (company details, proof of identity for the owners and
+      directors); approval is Revolut's to give and can take a few days. A
+      <a href="https://sandbox-business.revolut.com/" target="_blank" rel="noopener noreferrer">sandbox
+      account</a> needs none of this and can be set up in minutes if you only want to try it out.</p>
+  </div>
+
   <form method="post" action="/authorize" id="connect">
       ${hidden}
 
@@ -177,44 +188,54 @@ export function renderConnectPage(options: ConnectPageOptions): string {
       </div>
 
       <div class="step"><span class="n">2</span><div>
-        <h2>Add our certificate in Revolut</h2>
-        <p>Open your API settings and click <em>Add API certificate</em>. Paste these two values into
-          the form there, then save.</p>
+        <h2>Add the certificate in Revolut</h2>
+        <p>Open your API settings and click <em>Add certificate</em>. The dialog has three fields,
+          in this order — fill them in, then press Continue.</p>
       </div></div>
       <div class="indent">
         <p><a class="btn" id="portal" href="${PORTALS.production}" target="_blank" rel="noopener noreferrer">
           Open Revolut API settings ↗</a></p>
         <p class="hintline">If that doesn't land you on the API page: from the Revolut Business
           home, click your <strong>profile icon</strong>, then <strong>Settings</strong>, then
-          <strong>APIs</strong>, and pick the <strong>Business API</strong> tab.
-          Seeing <em>“Verify identity”</em> instead of a certificate form means Revolut has not
-          finished verifying the business yet — the API is only available once it has.</p>
+          <strong>APIs</strong>, and pick the <strong>Business API</strong> tab.</p>
 
-        <label for="cert">X509 public key — paste into the big box</label>
+        <label for="title">1. Certificate title — any name, up to 20 characters</label>
         <div class="copy">
-          <pre id="cert">${escapeHtml(certificate.trim())}</pre>
-          <button type="button" class="ghost" data-copy="cert">Copy</button>
+          <code id="title">revolut-mcp</code>
+          <button type="button" class="ghost" data-copy="title">Copy</button>
         </div>
 
-        <label for="uri">OAuth redirect URI — paste into the small box</label>
+        <label for="uri">2. OAuth redirect URI</label>
         <div class="copy">
           <code id="uri">${escapeHtml(redirectUri)}</code>
           <button type="button" class="ghost" data-copy="uri">Copy</button>
         </div>
-        <p class="hintline">Revolut will also ask which permissions to grant. Tick at least
-          <em>Read your account details</em>; add the payment permissions only if you want your
-          assistant to be able to move money.</p>
+
+        <label for="cert">3. X509 public key — the big box</label>
+        <div class="copy">
+          <pre id="cert">${escapeHtml(certificate.trim())}</pre>
+          <button type="button" class="ghost" data-copy="cert">Copy</button>
+        </div>
       </div>
 
       <div class="step"><span class="n">3</span><div>
-        <h2>Paste the Client ID Revolut gives you</h2>
-        <p>After saving, Revolut shows a <em>Client ID</em> next to your new certificate.</p>
+        <h2>Copy the Client ID</h2>
+        <p>Revolut shows a <em>ClientID</em> next to the new certificate — copy that and paste it
+          below.</p>
+        <p>The certificate starts as <em>Access disabled</em>. Don't press <strong>Enable
+          access</strong> there: it runs the same Revolut approval as the button below, but
+          starting it from the portal loses track of which assistant asked, and it dead-ends.
+          Continuing here enables access and connects you in one go. (If you already pressed it and
+          got an error page, no harm done — just carry on here.)</p>
       </div></div>
       <div class="indent">
         <label for="revolut_client_id">Client ID</label>
         <input id="revolut_client_id" name="revolut_client_id" type="text" required
           autocomplete="off" spellcheck="false" autocapitalize="off"
-          placeholder="e.g. J3lPq0Xm2FhK8w..." value="${clientIdValue}">
+          placeholder="e.g. tf7B236yJgMRWjMXdfVOhoU9..." value="${clientIdValue}">
+        <p class="hintline">Next you'll approve on Revolut's own screen, where it asks which
+          permissions to grant. Tick at least <em>Read your account details</em>; add the payment
+          permissions only if you want your assistant to be able to move money.</p>
       </div>
 
       <button class="submit" id="submit" type="submit">
