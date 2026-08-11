@@ -232,10 +232,10 @@ export function renderConnectPage(options: ConnectPageOptions): string {
           got an error page, no harm done — just carry on here.)</p>
       </div></div>
       <div class="indent">
-        <label for="revolut_client_id">Client ID — or the page URL you copied</label>
+        <label for="revolut_client_id">Page URL or Client ID — either works</label>
         <input id="revolut_client_id" name="revolut_client_id" type="text" required
           autocomplete="off" spellcheck="false" autocapitalize="off"
-          placeholder="tf7B236yJgMRWjM… or https://…/settings/apis?…&amp;clientId=…"
+          placeholder="https://…/settings/apis?…&amp;clientId=…    or    tf7B236yJgMRWjM…"
           value="${clientIdValue}">
         <p class="hintline">Next you'll approve on Revolut's own screen, where it asks which
           permissions to grant. Tick at least <em>Read your account details</em>; add the payment
