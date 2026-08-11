@@ -1,0 +1,213 @@
+name: deploy
+
+on:
+  push:
+    branches:
+      - master
+      # Bootstrap: lets the first deployment happen from the branch this was
+      # built on, before it is merged. Remove this line once it is on master.
+      - claude/pironman-multi-business-deploy-6iyvym
+  # Lets the deployment be re-verified without a commit.
+  workflow_dispatch:
+
+# Every run pushes the same `:latest` tag, and the box deploys whatever `:latest`
+# points at. Two overlapping runs therefore race, and the one that finishes last
+# wins regardless of which commit is newer — an arm64 build takes a while under
+# QEMU, so a quick follow-up commit can easily finish first and be undone by its
+# predecessor. Serialise on the branch and drop superseded runs.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP: revolut-mcp
+  APP_URL: https://revolut-mcp-coolify.bogdanripa.com
+  IMAGE: ghcr.io/bogdanripa/revolut-mcp
+
+jobs:
+  # The marketing site and docs are static, served by the platform's CDN — no
+  # container, no cold start. Uploaded on every push; publishes in about a second.
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package the static site
+        run: cd web && zip -qr ../site.zip .
+      - name: Upload the frontend
+        run: |
+          curl -fsS -X PUT \
+            -H "Authorization: Bearer ${{ secrets.PAAS_KEY }}" \
+            --data-binary @site.zip \
+            "https://api-coolify.bogdanripa.com/apps/revolut-mcp/frontend"
+
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: tag
+        run: echo "value=sha-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - uses: docker/build-push-action@v6
+        with:
+          platforms: linux/arm64
+          push: true
+          build-args: |
+            BUILD_SHA=${{ github.sha }}
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ steps.tag.outputs.value }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Tells the box what this build pushed — and, on an app's first deploy, is
+      # what creates the container. After that the box watches the tag itself and
+      # this just asks it to check now. Authenticated with this app's scoped
+      # deploy key (PAAS_KEY). A 2xx means the new container came up healthy (the
+      # platform verifies before answering), so a rolled-back deploy fails here.
+      # The control plane answers 404 while it restarts, so transient codes are
+      # retried rather than believed.
+      - name: Trigger deploy on the Pi
+        run: |
+          for i in $(seq 1 10); do
+            code=$(curl -sS -o /tmp/out -w '%{http_code}' -X POST \
+              -H "Authorization: Bearer ${{ secrets.PAAS_KEY }}" \
+              -H "Content-Type: application/json" \
+              -d "{\"image\": \"${IMAGE}:latest\"}" \
+              "https://api-coolify.bogdanripa.com/apps/${APP}/refresh" || echo 000)
+            case "$code" in
+              2*) cat /tmp/out; echo; exit 0 ;;
+              404|000|503|504) echo "attempt $i: $code, retrying"; sleep 10 ;;
+              401) echo "PAAS_KEY is not this app's deploy key"; exit 1 ;;
+              502) cat /tmp/out; echo
+                   echo "deploy rolled back — the new container never became healthy"
+                   echo "check: apps_logs ${APP}"; exit 1 ;;
+              *)  cat /tmp/out; echo; echo "refresh failed ($code)"; exit 1 ;;
+            esac
+          done
+          echo "gave up after 10 attempts"; exit 1
+
+  # The deploy above only asks the Pi to pull; it says nothing about whether the
+  # container then came up. This does, and its log is the only window into the
+  # running app for anyone who cannot reach the host directly.
+  smoke:
+    needs: [deploy, frontend]
+    runs-on: ubuntu-latest
+    steps:
+      # Waiting for a 200 is not enough: during a redeploy the OUTGOING container
+      # is still serving, so /health answers immediately and the steps below then
+      # race a half-started container. /health reports the commit it was built
+      # from, so wait for THIS one.
+      - name: Wait for the new container to serve /health
+        run: |
+          for i in $(seq 1 60); do
+            CODE=$(curl -s -o /tmp/body -w '%{http_code}' --max-time 10 "$APP_URL/health" || echo 000)
+            SEEN=$(sed -n 's/.*"commit":"\([^"]*\)".*/\1/p' /tmp/body)
+            echo "attempt $i: GET /health -> $CODE commit=${SEEN:-none} (want ${GITHUB_SHA})"
+            if [ "$CODE" = "200" ] && [ "$SEEN" = "$GITHUB_SHA" ]; then exit 0; fi
+            sleep 10
+          done
+          echo "::error::/health never reported commit ${GITHUB_SHA}. The new container is not serving."
+          echo "Last response body:"; cat /tmp/body; echo
+          exit 1
+
+      - name: Hosted mode is actually enabled
+        run: |
+          # /health reports whether the tenant store and service certificate came
+          # up. Without them the container serves pages but refuses every MCP
+          # request — a failure mode that otherwise only shows up for a user
+          # halfway through connecting.
+          curl -s --max-time 15 "$APP_URL/health" > /tmp/h; cat /tmp/h; echo
+          grep -q '"hosted":true' /tmp/h \
+            || { echo "::error::hosted mode is disabled — check DATABASE_URL, REVOLUT_SESSION_KEY, REVOLUT_SERVICE_PRIVATE_KEY, REVOLUT_SERVICE_CERTIFICATE"; exit 1; }
+
+      - name: Homepage renders for a browser
+        run: |
+          CODE=$(curl -s -o /tmp/page -w '%{http_code}' -H 'Accept: text/html' --max-time 15 "$APP_URL/")
+          TYPE=$(curl -s -o /dev/null -w '%{content_type}' -H 'Accept: text/html' --max-time 15 "$APP_URL/")
+          echo "GET / -> $CODE ($TYPE)"
+          test "$CODE" = "200" || { echo "::error::root returned $CODE"; head -c 500 /tmp/page; exit 1; }
+          # The homepage must come from the static host. If the backend answered
+          # (application/json), the frontend upload did not take effect.
+          case "$TYPE" in
+            text/html*) ;;
+            *) echo "::error::/ served $TYPE, not static HTML — the homepage came from the backend"; exit 1 ;;
+          esac
+          grep -q "Revolut MCP" /tmp/page || { echo "::error::homepage missing"; exit 1; }
+          for page in setup.html tools.html styles.css; do
+            C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$APP_URL/$page")
+            echo "GET /$page -> $C"
+            test "$C" = "200" || { echo "::error::/$page returned $C"; exit 1; }
+          done
+
+      - name: The certificate businesses register is served
+        run: |
+          CODE=$(curl -s -o /tmp/cert -w '%{http_code}' --max-time 15 "$APP_URL/certificate.pem")
+          echo "GET /certificate.pem -> $CODE"
+          test "$CODE" = "200" || { echo "::error::certificate returned $CODE"; exit 1; }
+          grep -q "BEGIN CERTIFICATE" /tmp/cert \
+            || { echo "::error::/certificate.pem is not a PEM certificate"; head -c 200 /tmp/cert; exit 1; }
+
+      - name: OAuth discovery metadata is served
+        run: |
+          CODE=$(curl -s -o /tmp/asm -w '%{http_code}' --max-time 15 "$APP_URL/.well-known/oauth-authorization-server")
+          echo "GET /.well-known/oauth-authorization-server -> $CODE"; head -c 300 /tmp/asm; echo
+          test "$CODE" = "200" || { echo "::error::AS metadata returned $CODE"; exit 1; }
+          grep -q '"authorization_endpoint"' /tmp/asm || { echo "::error::no authorization_endpoint"; exit 1; }
+          # The endpoints MUST be the public host. Valid metadata that points at
+          # an internal hostname passes discovery but is unusable by a real
+          # client — this is the check that catches that.
+          grep -q 'revolut-mcp-coolify.bogdanripa.com/authorize' /tmp/asm \
+            || { echo "::error::authorization_endpoint is not the public host"; cat /tmp/asm; exit 1; }
+          if grep -Eqi 'internal|localhost|127\.0\.0\.1|\.svc' /tmp/asm; then
+            echo "::error::AS metadata points at an internal host"; cat /tmp/asm; exit 1
+          fi
+          RS=$(curl -s -o /tmp/rsm -w '%{http_code}' --max-time 15 "$APP_URL/.well-known/oauth-protected-resource")
+          echo "GET /.well-known/oauth-protected-resource -> $RS"; head -c 300 /tmp/rsm; echo
+          test "$RS" = "200" || { echo "::error::PRM returned $RS"; exit 1; }
+          grep -q 'revolut-mcp-coolify.bogdanripa.com/mcp' /tmp/rsm \
+            || { echo "::error::PRM resource is not the public host"; cat /tmp/rsm; exit 1; }
+
+      - name: Unauthenticated MCP request is challenged
+        run: |
+          CODE=$(curl -s -D /tmp/hdr -o /dev/null -w '%{http_code}' --max-time 15 -X POST "$APP_URL/mcp" \
+            -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+            -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}')
+          echo "POST /mcp with no token -> $CODE"
+          test "$CODE" = "401" || { echo "::error::expected 401, got $CODE"; exit 1; }
+          # The challenge must point the client at the PUBLIC resource metadata —
+          # a bare presence check passes even when it points somewhere unreachable.
+          grep -iq 'www-authenticate:.*resource_metadata="https://revolut-mcp-coolify.bogdanripa.com/' /tmp/hdr \
+            || { echo "::error::WWW-Authenticate does not point at the public resource metadata"; cat /tmp/hdr; exit 1; }
+
+      - name: The connect page renders and offers the certificate
+        run: |
+          # Dynamic client registration, then walk to /authorize exactly as a real
+          # MCP client would. This is the whole onboarding path short of Revolut
+          # itself, and the part most likely to break silently.
+          REG=$(curl -s --max-time 15 -X POST "$APP_URL/register" \
+            -H 'Content-Type: application/json' \
+            -d '{"redirect_uris":["https://example.com/cb"],"client_name":"smoke test"}')
+          echo "$REG" | head -c 300; echo
+          CID=$(printf '%s' "$REG" | sed -n 's/.*"client_id":"\([^"]*\)".*/\1/p')
+          test -n "$CID" || { echo "::error::dynamic client registration failed"; exit 1; }
+          CODE=$(curl -s -o /tmp/authz -w '%{http_code}' --max-time 15 \
+            "$APP_URL/authorize?response_type=code&client_id=$CID&redirect_uri=https%3A%2F%2Fexample.com%2Fcb&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256")
+          echo "GET /authorize -> $CODE"
+          test "$CODE" = "200" || { echo "::error::connect page returned $CODE"; head -c 500 /tmp/authz; exit 1; }
+          grep -q "BEGIN CERTIFICATE" /tmp/authz \
+            || { echo "::error::connect page does not show the certificate to register"; exit 1; }
+          grep -q "/revolut/callback" /tmp/authz \
+            || { echo "::error::connect page does not show the redirect URI to register"; exit 1; }

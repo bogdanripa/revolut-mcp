@@ -15,6 +15,10 @@ docs
 scripts
 *.md
 
+# The marketing site is published to the platform's CDN by CI, not served by
+# the container — shipping it in the image would only make it go stale.
+web
+
 # Secrets and local config — never ship these into an image
 .env
 .env.*

@@ -2,12 +2,15 @@ import { z } from 'zod';
 import { Config } from '../config.js';
 import { RevolutAuth } from '../client/auth.js';
 import { RevolutClient } from '../client/revolut-client.js';
+import type { Tenant } from '../tenants/store.js';
 
 /** Shared dependencies passed to every tool handler at call time. */
 export interface ToolContext {
   config: Config;
   auth: RevolutAuth;
   client: RevolutClient;
+  /** Present only in hosted mode: which connected business this call is for. */
+  tenant?: Tenant;
 }
 
 /** MCP tool annotations (behavioural hints surfaced to clients). */

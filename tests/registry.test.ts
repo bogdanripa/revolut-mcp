@@ -1,7 +1,8 @@
-import { allTools, scopes } from '../src/scope/index.js';
+import { allTools, scopes, scopesFor } from '../src/scope/index.js';
 import { createServer } from '../src/server.js';
 import { zodToJsonSchema } from '../src/utils/json-schema.js';
-import { Config } from '../src/config.js';
+import { buildTenantConfig, Config } from '../src/config.js';
+import { MemoryTokenSource } from '../src/client/token-source.js';
 
 const fakeConfig = {
   clientId: 'cid',
@@ -16,6 +17,10 @@ const fakeConfig = {
   authBaseUrl: 'https://sandbox-business.revolut.com',
 } as unknown as Config;
 
+function toolNames(config: Config, hosted: boolean): string[] {
+  return scopesFor(config, { hosted }).flatMap((scope) => scope.tools.map((tool) => tool.name));
+}
+
 describe('tool registry', () => {
   const tools = allTools();
 
@@ -24,6 +29,7 @@ describe('tool registry', () => {
       [
         'accounts',
         'auth',
+        'connection',
         'counterparties',
         'foreign-exchange',
         'payments',
@@ -57,5 +63,81 @@ describe('tool registry', () => {
 
   it('builds an MCP server without throwing', () => {
     expect(() => createServer(fakeConfig)).not.toThrow();
+    expect(() =>
+      createServer(fakeConfig, { hosted: true, tokenSource: new MemoryTokenSource() })
+    ).not.toThrow();
+  });
+});
+
+describe('scope selection', () => {
+  const production = buildTenantConfig({
+    clientId: 'cid',
+    environment: 'production',
+    privateKey: 'KEY',
+    redirectUri: 'https://revolut-mcp.example.com/revolut/callback',
+  });
+
+  it('offers the stdio auth walkthrough only when not hosted', () => {
+    expect(toolNames(fakeConfig, false)).toEqual(expect.arrayContaining(['setup_auth', 'complete_auth']));
+    expect(toolNames(fakeConfig, false)).not.toContain('get_connection_status');
+
+    expect(toolNames(fakeConfig, true)).toContain('get_connection_status');
+    expect(toolNames(fakeConfig, true)).not.toContain('setup_auth');
+  });
+
+  it('hides the sandbox simulators from a production connection', () => {
+    expect(toolNames(fakeConfig, true)).toEqual(
+      expect.arrayContaining(['simulate_topup', 'simulate_transaction_state'])
+    );
+    expect(toolNames(production, true)).not.toContain('simulate_topup');
+    expect(toolNames(production, true)).not.toContain('simulate_transaction_state');
+  });
+
+  it('offers the same business tools either way', () => {
+    for (const name of [
+      'get_accounts',
+      'get_transactions',
+      'get_counterparties',
+      'create_payment',
+      'get_exchange_rate',
+      'get_team_members',
+    ]) {
+      expect(toolNames(production, true)).toContain(name);
+      expect(toolNames(fakeConfig, false)).toContain(name);
+    }
+  });
+});
+
+describe('buildTenantConfig', () => {
+  it('derives the JWT issuer from the callback host and picks the right endpoints', () => {
+    const config = buildTenantConfig({
+      clientId: 'rev-1',
+      environment: 'production',
+      privateKey: 'KEY',
+      redirectUri: 'https://revolut-mcp.example.com/revolut/callback',
+    });
+    expect(config.jwtIssuer).toBe('revolut-mcp.example.com');
+    expect(config.jwtAudience).toBe('https://revolut.com');
+    expect(config.apiBaseUrl).toBe('https://b2b.revolut.com/api/1.0');
+    expect(config.authBaseUrl).toBe('https://business.revolut.com');
+
+    const sandbox = buildTenantConfig({
+      clientId: 'rev-1',
+      environment: 'sandbox',
+      privateKey: 'KEY',
+      redirectUri: 'https://revolut-mcp.example.com/revolut/callback',
+    });
+    expect(sandbox.apiBaseUrl).toBe('https://sandbox-b2b.revolut.com/api/1.0');
+    expect(sandbox.authBaseUrl).toBe('https://sandbox-business.revolut.com');
+  });
+
+  it('never points a hosted tenant at the filesystem token store', () => {
+    const config = buildTenantConfig({
+      clientId: 'rev-1',
+      environment: 'production',
+      privateKey: 'KEY',
+      redirectUri: 'https://revolut-mcp.example.com/revolut/callback',
+    });
+    expect(config.tokenStorePath).toBe('');
   });
 });

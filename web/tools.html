@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tools — Revolut MCP</title>
+<meta name="description" content="Every tool the Revolut MCP server exposes: accounts, transactions, counterparties, payments, foreign exchange and team — with the Revolut permission each one needs.">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<nav>
+  <a class="brand" href="/">Revolut MCP</a>
+  <span class="spacer"></span>
+  <a href="/setup.html">Setup</a>
+  <a href="/tools.html" aria-current="page">Tools</a>
+  <a href="https://github.com/bogdanripa/revolut-mcp" target="_blank" rel="noopener noreferrer">GitHub</a>
+</nav>
+
+<main>
+  <section class="hero">
+    <h1>Tools</h1>
+    <p class="lede">Everything the server exposes, grouped the way it is grouped in the code. Read
+      tools work with the minimum Revolut permission; write tools need the matching permission
+      granted on the consent screen, and fail with HTTP 403 if it was not.</p>
+  </section>
+
+  <div class="note">
+    <p>Tools marked <strong>writes money</strong> move real funds and cannot be undone. Your
+      assistant is instructed to confirm the counterparty, amount and currency with you first, but
+      the real control is the permission set you grant Revolut — if you never tick the payment
+      permissions, these tools cannot do anything.</p>
+  </div>
+
+  <h2>Connection</h2>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Tool</th><th>Does</th><th>Kind</th></tr></thead>
+    <tbody>
+      <tr><td><code>get_connection_status</code></td><td>Which business, which environment, when it was connected, and what permissions Revolut granted.</td><td>reads</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="lede" style="font-size:.9rem">Running over stdio instead, this is replaced by
+    <code>setup_auth</code> and <code>complete_auth</code>, which walk you through authorizing from
+    the command line.</p>
+
+  <h2>Accounts</h2>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Tool</th><th>Does</th><th>Kind</th></tr></thead>
+    <tbody>
+      <tr><td><code>get_accounts</code></td><td>Every account with balance, currency and state.</td><td>reads</td></tr>
+      <tr><td><code>get_account</code></td><td>One account by ID.</td><td>reads</td></tr>
+      <tr><td><code>get_account_bank_details</code></td><td>IBAN/BIC or local account number and sort code, supported schemes, estimated settlement times.</td><td>reads</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>Transactions</h2>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Tool</th><th>Does</th><th>Kind</th></tr></thead>
+    <tbody>
+      <tr><td><code>get_transactions</code></td><td>Transaction history, filtered by account, date range and type. Newest first, capped — ask for a range explicitly.</td><td>reads</td></tr>
+      <tr><td><code>get_transaction</code></td><td>One transaction in full: type, state, timestamps and every leg.</td><td>reads</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>Counterparties</h2>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Tool</th><th>Does</th><th>Kind</th></tr></thead>
+    <tbody>
+      <tr><td><code>get_counterparties</code></td><td>Every saved payee with its accounts and identifiers.</td><td>reads</td></tr>
+      <tr><td><code>get_counterparty</code></td><td>One payee by ID.</td><td>reads</td></tr>
+      <tr><td><code>create_counterparty</code></td><td>Add a payee — by Revtag, or by IBAN/SWIFT or local bank details.</td><td>writes</td></tr>
+      <tr><td><code>delete_counterparty</code></td><td>Remove a payee. Irreversible.</td><td>writes</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>Payments &amp; transfers</h2>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Tool</th><th>Does</th><th>Kind</th></tr></thead>
+    <tbody>
+      <tr><td><code>get_payment_drafts</code></td><td>Payment orders waiting for approval.</td><td>reads</td></tr>
+      <tr><td><code>get_transfer_reasons</code></td><td>Valid transfer reason codes, required for some countries and currencies.</td><td>reads</td></tr>
+      <tr><td><code>create_payment</code></td><td>Send money from one of your accounts to a counterparty.</td><td>writes money</td></tr>
+      <tr><td><code>transfer_between_accounts</code></td><td>Move money between two of your own accounts.</td><td>writes money</td></tr>
+      <tr><td><code>cancel_transaction</code></td><td>Cancel a scheduled or pending payment.</td><td>writes</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>Foreign exchange</h2>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Tool</th><th>Does</th><th>Kind</th></tr></thead>
+    <tbody>
+      <tr><td><code>get_exchange_rate</code></td><td>Revolut's live rate between two currencies, with the converted amount and the fee.</td><td>reads</td></tr>
+      <tr><td><code>exchange_currency</code></td><td>Convert between two of your own accounts at that rate.</td><td>writes money</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>Team</h2>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Tool</th><th>Does</th><th>Kind</th></tr></thead>
+    <tbody>
+      <tr><td><code>get_team_members</code></td><td>Who is on the business account, with email, role and state.</td><td>reads</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>Sandbox</h2>
+  <p>Offered only when the connection targets Revolut's sandbox, where the money is not real. They
+    do not appear at all on a production connection.</p>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Tool</th><th>Does</th><th>Kind</th></tr></thead>
+    <tbody>
+      <tr><td><code>simulate_topup</code></td><td>Add simulated funds to an account so there is something to work with.</td><td>writes</td></tr>
+      <tr><td><code>simulate_transaction_state</code></td><td>Drive a transaction to completed, reverted, declined or failed.</td><td>writes</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>Pairing it with invoicing</h2>
+  <p>The reason this exists: add an invoicing MCP server alongside it and the two answer questions
+    neither can alone — which issued invoices have actually landed in the bank, what is still
+    outstanding, which incoming transfer matches which document. Ask for a date range, let it pull
+    the statement, and match on counterparty and amount.</p>
+</main>
+
+<footer>
+  revolut-mcp ·
+  <a href="https://github.com/bogdanripa/revolut-mcp" target="_blank" rel="noopener noreferrer">open source on GitHub</a>
+  · not affiliated with Revolut
+</footer>
+</body>
+</html>

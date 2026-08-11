@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Revolut MCP — put your business banking in reach of your AI</title>
+<meta name="description" content="Connect Claude, ChatGPT or any MCP client to your Revolut Business account: read balances and transactions, reconcile against your invoicing, and move money when you let it.">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<nav>
+  <a class="brand" href="/">Revolut MCP</a>
+  <span class="spacer"></span>
+  <a href="/setup.html">Setup</a>
+  <a href="/tools.html">Tools</a>
+  <a href="https://github.com/bogdanripa/revolut-mcp" target="_blank" rel="noopener noreferrer">GitHub</a>
+</nav>
+
+<main>
+  <section class="hero center">
+    <h1>Ask your AI about your business bank account.</h1>
+    <p class="tagline">Revolut MCP connects Claude, ChatGPT or any MCP client to your
+      <a href="https://business.revolut.com/" target="_blank" rel="noopener noreferrer">Revolut Business</a>
+      account — balances, transactions, counterparties and payments, in plain language.</p>
+    <p><a class="btn" href="#connect">Connect your account</a>
+       <a class="btn ghost" href="/setup.html">Read the setup guide</a></p>
+  </section>
+
+  <h2>What you can ask it to do</h2>
+  <div class="grid">
+    <div class="card"><h3>See where the money is</h3><p>Every account with its balance and currency, plus the IBAN, BIC, sort code or routing number for any of them.</p></div>
+    <div class="card"><h3>Go through the statement</h3><p>Transactions over any date range or account, with counterparty, amount, state and fees — the raw material for reconciliation.</p></div>
+    <div class="card"><h3>Reconcile against invoicing</h3><p>Pair it with an invoicing MCP server and ask which invoices actually got paid, and which are still outstanding.</p></div>
+    <div class="card"><h3>Manage counterparties</h3><p>List, inspect, add and remove the people and companies you pay, by IBAN/SWIFT or local account details.</p></div>
+    <div class="card"><h3>Move money — if you allow it</h3><p>Payments between your own accounts and out to counterparties, plus currency exchange at Revolut's rate. Only if you grant the permission.</p></div>
+    <div class="card"><h3>Know your team</h3><p>Who is on the business account and what role they hold.</p></div>
+  </div>
+
+  <h2 id="connect">Connect it in three steps</h2>
+  <ol class="steps">
+    <li><strong>Copy the connector URL.</strong>
+      <div class="url"><code id="url">…</code><button id="copy" type="button">Copy</button></div>
+    </li>
+    <li><strong>Add it to your assistant.</strong>
+      <p>In Claude: Settings → Connectors → <em>Add custom connector</em>, paste the URL, save.
+      Leave any token or client-ID fields empty — the connection is set up in the next step.</p>
+    </li>
+    <li><strong>Register the certificate and approve in Revolut.</strong>
+      <p>Your assistant opens our connect page. It hands you a certificate and a redirect URI to
+      paste into Revolut → Settings → APIs, you paste the Client ID Revolut gives you back, and
+      Revolut asks you to approve. About a minute, once.
+      <a href="/setup.html">See it step by step →</a></p>
+    </li>
+  </ol>
+
+  <div class="note">
+    <p><strong>Why is there a certificate step at all?</strong> Revolut Business has no way to
+      register an API client programmatically — every business creates its own, in its own portal.
+      That one paste is the only manual part; everything after it is driven for you.</p>
+  </div>
+
+  <h2>Where your credentials live</h2>
+  <p>You approve the connection on Revolut's own site, so your Revolut password and 2FA never touch
+    this server. What we keep is the access token Revolut issues for your business, encrypted at rest
+    with AES-256-GCM. Your assistant never receives it — it gets a separate token that maps to your
+    account and can be revoked without touching anything on the Revolut side.</p>
+
+  <div class="warn">
+    <p><strong>This is a real bank account.</strong> Revolut asks which permissions to grant when you
+      approve, and you can grant read-only. Payment tools are exposed, but they only work if you
+      ticked the payment permissions — and every transfer they make is real and irreversible. Grant
+      the least you need.</p>
+    <p>This is a community project. It is not built, run or endorsed by Revolut.</p>
+  </div>
+
+  <h2>Prefer to run it yourself?</h2>
+  <p>It also runs over stdio, single-account, on your own machine — no server, no database, tokens in
+    a local file. And the hosted deployment is one container plus a Postgres database, so you can
+    stand up your own copy from the same repository.</p>
+  <pre><code>npx revolut-mcp --help</code></pre>
+</main>
+
+<footer>
+  revolut-mcp ·
+  <a href="https://github.com/bogdanripa/revolut-mcp" target="_blank" rel="noopener noreferrer">open source on GitHub</a>
+  · self-hostable · not affiliated with Revolut
+</footer>
+
+<script>
+(function () {
+  var url = document.getElementById('url');
+  var btn = document.getElementById('copy');
+  // Host-agnostic: the connector URL is this origin's MCP endpoint.
+  var connector = location.origin + '/mcp';
+  url.textContent = connector;
+  btn.addEventListener('click', function () {
+    var done = function () {
+      btn.textContent = 'Copied';
+      setTimeout(function () { btn.textContent = 'Copy'; }, 1500);
+    };
+    if (navigator.clipboard) navigator.clipboard.writeText(connector).then(done, done);
+    else {
+      var area = document.createElement('textarea');
+      area.value = connector; document.body.appendChild(area); area.select();
+      document.execCommand('copy'); document.body.removeChild(area); done();
+    }
+  });
+})();
+</script>
+</body>
+</html>

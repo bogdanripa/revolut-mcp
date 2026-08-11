@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Setup — Revolut MCP</title>
+<meta name="description" content="How to connect your Revolut Business account to Claude, ChatGPT or any MCP client, step by step — and how to run the server yourself over stdio.">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<nav>
+  <a class="brand" href="/">Revolut MCP</a>
+  <span class="spacer"></span>
+  <a href="/setup.html" aria-current="page">Setup</a>
+  <a href="/tools.html">Tools</a>
+  <a href="https://github.com/bogdanripa/revolut-mcp" target="_blank" rel="noopener noreferrer">GitHub</a>
+</nav>
+
+<main>
+  <section class="hero">
+    <h1>Setup</h1>
+    <p class="lede">Connecting takes about a minute. You do it once per business, in your browser —
+      after that your assistant just works, and tokens refresh themselves.</p>
+  </section>
+
+  <h2>Before you start</h2>
+  <p>You need a <strong>Revolut Business</strong> account (this is the business API — personal
+    Revolut accounts are not supported) and enough access on it to reach
+    <em>Settings → APIs</em>. That is normally an Owner or Admin.</p>
+
+  <h2>1. Add the connector to your assistant</h2>
+  <p>The connector URL is this deployment's MCP endpoint:</p>
+  <div class="url"><code id="url">…</code><button id="copy" type="button">Copy</button></div>
+  <h3>Claude</h3>
+  <p>Settings → Connectors → <em>Add custom connector</em> → paste the URL → Add. Leave the optional
+    client ID and secret fields empty; this server registers your client automatically.</p>
+  <h3>Anything else that speaks MCP</h3>
+  <p>Add it as a remote / streamable-HTTP MCP server at the same URL. The server advertises OAuth
+    through <code>/.well-known/oauth-authorization-server</code> and supports dynamic client
+    registration, so no client-side credentials are needed.</p>
+
+  <h2>2. Register the certificate with Revolut</h2>
+  <p>Your assistant will send you to our connect page. It shows you two values; both go into one
+    Revolut form.</p>
+  <ol class="steps">
+    <li><strong>Open Revolut → Settings → APIs.</strong>
+      <p>The connect page has a button that takes you straight there, for production or sandbox.
+      Click <em>Add API certificate</em>.</p>
+    </li>
+    <li><strong>Paste the X509 public key.</strong>
+      <p>Copy it from the connect page — it is this deployment's public certificate. It is public by
+      design; the matching private key never leaves the server. You can also fetch it directly at
+      <code><span class="origin">…</span>/certificate.pem</code>.</p>
+    </li>
+    <li><strong>Paste the OAuth redirect URI.</strong>
+      <p>It must match exactly, including the path: <code><span class="origin">…</span>/revolut/callback</code>.
+      A mismatch here is the single most common reason a connection fails.</p>
+    </li>
+    <li><strong>Choose the permissions to grant.</strong>
+      <p>Revolut asks what the integration may do. <em>Read your account details</em> is required —
+      without it nothing works. Add the payment permissions only if you want your assistant to be
+      able to move money.</p>
+    </li>
+    <li><strong>Save, then copy the Client ID.</strong>
+      <p>Revolut shows a Client ID next to the new certificate. Paste it into the connect page and
+      press Continue.</p>
+    </li>
+  </ol>
+
+  <h2>3. Approve on Revolut</h2>
+  <p>You land on Revolut's own consent screen. Approve, and the browser comes back here and hands
+    your assistant a token. If Revolut inserts an identity re-verification step that ends with
+    <em>"Successfully authorized — please return to your original tab"</em>, switch back to the tab
+    you started in; that is where the redirect completes.</p>
+  <p>We verify the connection by reading your account list before telling your assistant it is
+    connected, so a consent granted with no permissions is caught immediately rather than surfacing
+    later as a confusing tool error.</p>
+
+  <h2>Keeping it working</h2>
+  <p>Revolut access tokens last about 40 minutes and are refreshed automatically. The underlying
+    consent lasts roughly <strong>90 days</strong>, and the certificate you registered has its own
+    expiry. When either lapses, reconnect from your assistant — the same Client ID works, so you
+    only redo the approval, not the certificate.</p>
+
+  <h2>When something goes wrong</h2>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>What you see</th><th>What it usually means</th></tr></thead>
+    <tbody>
+      <tr><td>"Revolut refused to complete the connection"</td>
+          <td>The redirect URI on the certificate is not an exact match, the certificate is not the
+              one on the connect page, or the approval took more than a couple of minutes.</td></tr>
+      <tr><td>"Revolut would not let us read your accounts"</td>
+          <td>The consent was granted without <em>Read your account details</em>. Reconnect and tick it.</td></tr>
+      <tr><td>A tool fails with HTTP 403</td>
+          <td>That specific permission was not granted. <code>get_connection_status</code> shows what was.</td></tr>
+      <tr><td>"Bad Request — check the redirect URL"</td>
+          <td>Revolut rejects <code>localhost</code> redirect URIs. Use the URI shown on the connect page.</td></tr>
+      <tr><td>Everything worked, then stopped after months</td>
+          <td>The 90-day consent window expired. Reconnect from your assistant.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>Running it yourself instead</h2>
+  <p>The same server runs over stdio for a single business, with no server and no database. You
+    generate your own keypair and register it exactly as above, using your own redirect URI.</p>
+  <pre><code>openssl genrsa -out privatekey.pem 2048
+openssl req -new -x509 -key privatekey.pem -out publickey.cer -days 1825 -subj "/CN=revolut-mcp"</code></pre>
+  <p>Then point an MCP client at it:</p>
+  <pre><code>claude mcp add revolut \
+  --env REVOLUT_CLIENT_ID=your_client_id \
+  --env REVOLUT_PRIVATE_KEY_PATH=/absolute/path/to/privatekey.pem \
+  --env REVOLUT_REDIRECT_URI=https://example.com/ \
+  --env REVOLUT_ENVIRONMENT=production \
+  -- npx -y revolut-mcp</code></pre>
+  <p>In stdio mode the <code>setup_auth</code> and <code>complete_auth</code> tools walk you through
+    the authorization: the first returns a URL to open, the second takes the <code>code</code> from
+    the redirect. Tokens are written to <code>./.tokens.json</code>.</p>
+  <p>To host your own multi-tenant copy, see the
+    <a href="https://github.com/bogdanripa/revolut-mcp#hosting-your-own" target="_blank" rel="noopener noreferrer">hosting section in the README</a>.</p>
+</main>
+
+<footer>
+  revolut-mcp ·
+  <a href="https://github.com/bogdanripa/revolut-mcp" target="_blank" rel="noopener noreferrer">open source on GitHub</a>
+  · not affiliated with Revolut
+</footer>
+
+<script>
+(function () {
+  var connector = location.origin + '/mcp';
+  document.getElementById('url').textContent = connector;
+  Array.prototype.forEach.call(document.querySelectorAll('.origin'), function (el) {
+    el.textContent = location.origin;
+  });
+  var btn = document.getElementById('copy');
+  btn.addEventListener('click', function () {
+    var done = function () {
+      btn.textContent = 'Copied';
+      setTimeout(function () { btn.textContent = 'Copy'; }, 1500);
+    };
+    if (navigator.clipboard) navigator.clipboard.writeText(connector).then(done, done);
+    else {
+      var area = document.createElement('textarea');
+      area.value = connector; document.body.appendChild(area); area.select();
+      document.execCommand('copy'); document.body.removeChild(area); done();
+    }
+  });
+})();
+</script>
+</body>
+</html>

@@ -5,7 +5,8 @@ Complete documentation for **revolut-mcp** — a Model Context Protocol server f
 
 ## Getting Started
 
-- **[Installation](getting-started/installation.md)** — install from npm, source, or Docker
+- **[Hosted mode](getting-started/hosted.md)** — connect a business to the multi-tenant deployment, or run your own
+- **[Installation](getting-started/installation.md)** — run it yourself over stdio, from source or Docker
 - **[Generate a Sandbox Token](getting-started/sandbox-token.md)** — set up the Revolut Business sandbox and obtain a token
 - **[Authentication](getting-started/authentication.md)** — generate your certificate and complete the OAuth flow
 - **[Testing](getting-started/testing.md)** — run the unit and live integration tests
@@ -19,7 +20,7 @@ Complete documentation for **revolut-mcp** — a Model Context Protocol server f
 
 Tools are organized by scope. Each scope has its own reference page:
 
-- **[Auth](reference/auth/README.md)** — authorize the app and exchange the code for tokens
+- **[Auth](reference/auth/README.md)** — authorize the app and exchange the code for tokens (stdio only; hosted connections get `get_connection_status` instead)
 - **[Accounts](reference/accounts/README.md)** — list accounts, balances, and bank details
 - **[Transactions](reference/transactions/README.md)** — transaction history and detail
 - **[Counterparties](reference/counterparties/README.md)** — manage payees

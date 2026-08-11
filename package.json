@@ -1,8 +1,7 @@
 {
-  "name": "@jeff-nasseri/revolut-mcp",
-  "version": "0.0.0",
-  "description": "MCP server for the Revolut Business API — accounts, transactions, counterparties, payments, transfers, FX, and team, over a scope-based tool architecture.",
-  "mcpName": "io.github.jeff-nasseri/revolut-mcp",
+  "name": "revolut-mcp",
+  "version": "0.2.0",
+  "description": "Multi-tenant MCP server for the Revolut Business API — accounts, transactions, counterparties, payments, transfers and FX, over stdio or hosted HTTP with OAuth.",
   "main": "dist/index.js",
   "bin": {
     "revolut-mcp": "dist/index.js"
@@ -16,7 +15,9 @@
     "test:coverage": "jest --coverage",
     "test:integration": "REVOLUT_RUN_INTEGRATION=1 jest live",
     "lint": "tsc --noEmit",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "start:http": "node dist/index.js --http",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [
     "mcp",
@@ -28,15 +29,15 @@
     "open-banking",
     "model-context-protocol"
   ],
-  "author": "Jeff Nasseri",
+  "author": "Bogdan Ripa",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jeff-nasseri/revolut-mcp.git"
+    "url": "git+https://github.com/bogdanripa/revolut-mcp.git"
   },
-  "homepage": "https://github.com/jeff-nasseri/revolut-mcp#readme",
+  "homepage": "https://github.com/bogdanripa/revolut-mcp#readme",
   "bugs": {
-    "url": "https://github.com/jeff-nasseri/revolut-mcp/issues"
+    "url": "https://github.com/bogdanripa/revolut-mcp/issues"
   },
   "files": [
     "dist/**/*",
@@ -51,6 +52,7 @@
     "axios": "^1.7.9",
     "dotenv": "^16.4.7",
     "jsonwebtoken": "^9.0.2",
+    "pg": "^8.23.0",
     "uuid": "^11.0.3",
     "zod": "^3.24.1"
   },
@@ -58,9 +60,9 @@
     "@types/jest": "^29.5.14",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^22.10.7",
+    "@types/pg": "^8.21.0",
     "@types/uuid": "^10.0.0",
     "jest": "^29.7.0",
-    "nock": "^14.0.0",
     "ts-jest": "^29.2.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.3"

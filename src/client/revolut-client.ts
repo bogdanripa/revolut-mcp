@@ -35,9 +35,10 @@ export class RevolutClient {
 
   constructor(
     private readonly config: Config,
-    private readonly auth: RevolutAuth
+    private readonly auth: RevolutAuth,
+    http?: AxiosInstance
   ) {
-    this.http = axios.create({ baseURL: config.apiBaseUrl });
+    this.http = http ?? axios.create({ baseURL: config.apiBaseUrl });
     this.http.interceptors.request.use(async (req) => {
       const token = await this.auth.getValidAccessToken();
       req.headers.Authorization = `Bearer ${token}`;

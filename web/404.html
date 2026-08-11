@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Not found — Revolut MCP</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<nav>
+  <a class="brand" href="/">Revolut MCP</a>
+  <span class="spacer"></span>
+  <a href="/setup.html">Setup</a>
+  <a href="/tools.html">Tools</a>
+</nav>
+<main>
+  <section class="hero">
+    <h1>Nothing here.</h1>
+    <p class="lede">That page doesn't exist. If you were trying to connect an assistant, the
+      connector URL is <code id="url">…</code> — start from the <a href="/">homepage</a>.</p>
+  </section>
+</main>
+<script>document.getElementById('url').textContent = location.origin + '/mcp';</script>
+</body>
+</html>

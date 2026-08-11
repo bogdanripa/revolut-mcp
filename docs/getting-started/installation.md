@@ -23,28 +23,19 @@ This page covers prerequisites, the available install methods, and configuration
 
 Pick **one** of the following.
 
-### (a) From npm
+### (a) Don't install it — use the hosted deployment
 
-Install the package globally and run the bundled `revolut-mcp` binary:
+If you only want to use the tools, you do not need to install anything. A public deployment at
+<https://revolut-mcp-coolify.bogdanripa.com/> serves any number of businesses over HTTP; you add
+one URL to your assistant and connect in a browser. See the [hosted guide](hosted.md).
 
-```bash
-npm install -g @jeff-nasseri/revolut-mcp
-revolut-mcp
-```
-
-Or run it on demand without a global install (handy in MCP client configs):
-
-```bash
-npx @jeff-nasseri/revolut-mcp
-```
-
-Both expose the same stdio MCP server. Set the configuration environment variables (see [Configuration](#configuration)) before launching, or let your MCP client inject them via its `env` block.
+The rest of this page is for running the server yourself, over stdio, against a single business.
 
 ### (b) From source
 
 ```bash
 # Clone the repository
-git clone https://github.com/jeff-nasseri/revolut-mcp.git
+git clone https://github.com/bogdanripa/revolut-mcp.git
 cd revolut-mcp
 
 # Install dependencies
@@ -61,31 +52,26 @@ The build step produces `dist/index.js`, which is the entry point you point your
 
 ### (c) Docker
 
-A prebuilt image is published to the GitHub Container Registry as `ghcr.io/jeff-nasseri/revolut-mcp`. Because the server speaks stdio, run the container with `-i` (interactive) so the MCP client can attach to the process's stdin/stdout:
+The image published to `ghcr.io/bogdanripa/revolut-mcp` runs the **hosted, multi-tenant HTTP
+server**, not the stdio one — that is what the deployment needs. It is documented in the
+[hosted guide](hosted.md), and it is not what you want for a single business on your own machine.
+
+For stdio in a container, build the image and override the command:
 
 ```bash
-docker run -i --rm \
-  -e REVOLUT_CLIENT_ID=your_client_id \
-  -e REVOLUT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----
-...
------END PRIVATE KEY-----" \
-  -e REVOLUT_REDIRECT_URI=https://example.com/ \
-  -e REVOLUT_ENVIRONMENT=sandbox \
-  ghcr.io/jeff-nasseri/revolut-mcp
-```
-
-Passing the key inline with `REVOLUT_PRIVATE_KEY` avoids mounting a file. If you prefer a file, mount it and point `REVOLUT_PRIVATE_KEY_PATH` at the in-container path:
-
-```bash
+docker build -t revolut-mcp .
 docker run -i --rm \
   -e REVOLUT_CLIENT_ID=your_client_id \
   -e REVOLUT_PRIVATE_KEY_PATH=/keys/privatekey.pem \
   -e REVOLUT_REDIRECT_URI=https://example.com/ \
-  -v "$(pwd)/certs:/keys:ro" \
-  ghcr.io/jeff-nasseri/revolut-mcp
+  -e TOKEN_STORE_PATH=/data/.tokens.json \
+  -v "$(pwd)/certs:/keys:ro" -v "$(pwd)/.revolut:/data" \
+  revolut-mcp node dist/index.js
 ```
 
-> **Token persistence in Docker:** OAuth tokens are written to `TOKEN_STORE_PATH` (default `/app/.tokens.json` in the image). With `--rm` and no volume, that file is lost when the container exits, so you would have to re-authenticate each run. To keep tokens between runs, mount a volume and set `TOKEN_STORE_PATH` to a path inside it, e.g. `-v "$(pwd)/.revolut:/data" -e TOKEN_STORE_PATH=/data/.tokens.json`.
+> **Token persistence:** tokens are written to `TOKEN_STORE_PATH`. With `--rm` and no volume that
+> file is lost when the container exits and you would re-authenticate every run — hence the `/data`
+> mount above.
 
 ---
 
