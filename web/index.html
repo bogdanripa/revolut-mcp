@@ -77,7 +77,10 @@
   <p>It also runs over stdio, single-account, on your own machine — no server, no database, tokens in
     a local file. And the hosted deployment is one container plus a Postgres database, so you can
     stand up your own copy from the same repository.</p>
-  <pre><code>npx revolut-mcp --help</code></pre>
+  <pre><code>git clone https://github.com/bogdanripa/revolut-mcp
+cd revolut-mcp &amp;&amp; npm install &amp;&amp; npm run build
+node dist/index.js --help</code></pre>
+  <p><a href="/setup.html#running-it-yourself-instead">Full instructions →</a></p>
 </main>
 
 <footer>

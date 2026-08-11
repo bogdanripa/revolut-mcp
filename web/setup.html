@@ -102,7 +102,7 @@
   </table>
   </div>
 
-  <h2>Running it yourself instead</h2>
+  <h2 id="running-it-yourself-instead">Running it yourself instead</h2>
   <p>The same server runs over stdio for a single business, with no server and no database. You
     generate your own keypair and register it exactly as above, using your own redirect URI.</p>
   <pre><code>openssl genrsa -out privatekey.pem 2048
@@ -113,7 +113,7 @@ openssl req -new -x509 -key privatekey.pem -out publickey.cer -days 1825 -subj "
   --env REVOLUT_PRIVATE_KEY_PATH=/absolute/path/to/privatekey.pem \
   --env REVOLUT_REDIRECT_URI=https://example.com/ \
   --env REVOLUT_ENVIRONMENT=production \
-  -- npx -y revolut-mcp</code></pre>
+  -- node /absolute/path/to/revolut-mcp/dist/index.js</code></pre>
   <p>In stdio mode the <code>setup_auth</code> and <code>complete_auth</code> tools walk you through
     the authorization: the first returns a URL to open, the second takes the <code>code</code> from
     the redirect. Tokens are written to <code>./.tokens.json</code>.</p>
