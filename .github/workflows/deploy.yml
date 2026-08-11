@@ -72,13 +72,12 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Tells the box what this build pushed — and, on an app's first deploy, is
-      # what creates the container. After that the box watches the tag itself and
-      # this just asks it to check now. Authenticated with this app's scoped
-      # deploy key (PAAS_KEY). A 2xx means the new container came up healthy (the
-      # platform verifies before answering), so a rolled-back deploy fails here.
-      # The control plane answers 404 while it restarts, so transient codes are
-      # retried rather than believed.
+      # Deploys by pointing the app at this build's IMMUTABLE tag, not at
+      # ':latest'. The platform pulls by tag, and re-pushing ':latest' does not
+      # reliably force a fresh pull: its recorded digest can drift ahead of what
+      # is actually running, after which every deploy is a no-op that reports
+      # success. An sha- tag is a value it has never seen, so there is nothing to
+      # be wrong about. Authenticated with this app's scoped deploy key.
       - name: Trigger deploy on the Pi
         run: |
           # The box sits behind Cloudflare, which abandons a request at ~100s.
@@ -97,12 +96,13 @@ jobs:
             return 1
           }
 
+          TAG=${{ steps.tag.outputs.value }}
           for i in $(seq 1 10); do
-            code=$(curl -sS -o /tmp/out -w '%{http_code}' --max-time 180 -X POST \
+            code=$(curl -sS -o /tmp/out -w '%{http_code}' --max-time 180 -X PUT \
               -H "Authorization: Bearer ${{ secrets.PAAS_KEY }}" \
               -H "Content-Type: application/json" \
-              -d "{\"image\": \"${IMAGE}:latest\"}" \
-              "https://api-coolify.bogdanripa.com/apps/${APP}/refresh" || echo 000)
+              -d "{\"image\": \"${IMAGE}:${TAG}\"}" \
+              "https://api-coolify.bogdanripa.com/apps/${APP}/code" || echo 000)
             case "$code" in
               2*)
                 cat /tmp/out; echo
@@ -194,8 +194,12 @@ jobs:
           CODE=$(curl -s -o /tmp/cert -w '%{http_code}' --max-time 15 "$APP_URL/certificate.pem")
           echo "GET /certificate.pem -> $CODE"
           test "$CODE" = "200" || { echo "::error::certificate returned $CODE"; exit 1; }
-          grep -q "BEGIN CERTIFICATE" /tmp/cert \
-            || { echo "::error::/certificate.pem is not a PEM certificate"; head -c 200 /tmp/cert; exit 1; }
+          # Not a grep for BEGIN CERTIFICATE: a PEM mangled by one unescape too
+          # many keeps its header and a stray backslash on every line, which
+          # reads as fine and parses as nothing. Businesses paste this into
+          # Revolut, so it has to be a certificate openssl will actually accept.
+          openssl x509 -in /tmp/cert -noout -subject -dates \
+            || { echo "::error::/certificate.pem is not a parseable X.509 certificate"; head -c 300 /tmp/cert; exit 1; }
 
       - name: OAuth discovery metadata is served
         run: |

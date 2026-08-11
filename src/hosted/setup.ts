@@ -6,6 +6,7 @@
 // container is diagnosable) but refuses MCP requests, because without a tenant
 // store there is no way to tell one business from another.
 
+import { createPrivateKey, X509Certificate } from 'crypto';
 import { Pool } from 'pg';
 import { OAuthProvider, ServiceIdentity } from '../oauth/provider.js';
 import { PostgresOAuthStore } from '../oauth/postgres.js';
@@ -32,18 +33,63 @@ function missing(env: NodeJS.ProcessEnv): string[] {
 }
 
 /**
- * PEM read out of an environment variable. Docker, shells and CI all mangle real
- * newlines differently, so accept the two forms that actually turn up: literal
- * newlines, and `\n` escapes. A PEM with neither is not a PEM.
+ * PEM read out of an environment variable.
+ *
+ * Every layer between a keypair and a running container mangles newlines its own
+ * way: a shell, a compose file, a JSON body and a control-plane API each get a
+ * turn, and escapes survive more than one of them. A value that started as
+ * `\n` arrives as `\\n`, whose single-level unescape leaves a stray backslash
+ * at the end of every line — still headed `-----BEGIN`, still obviously a PEM to
+ * anything that only looks at the header, and completely unparseable. So
+ * collapse *any* run of backslashes before an `n`, and drop trailing
+ * backslashes: base64 contains neither, so nothing legitimate is lost.
  */
 export function readPem(value: string | undefined, name: string): string {
   const raw = (value ?? '').trim();
   if (!raw) throw new Error(`${name} is empty.`);
-  const pem = raw.includes('\\n') ? raw.replace(/\\n/g, '\n') : raw;
+  const pem = raw.includes('\\')
+    ? raw
+        .replace(/\\+r/g, '')
+        .replace(/\\+n/g, '\n')
+        .replace(/\\+$/gm, '')
+        .trim()
+    : raw;
   if (!/-----BEGIN [A-Z ]+-----/.test(pem)) {
     throw new Error(`${name} does not look like a PEM block (no -----BEGIN ... ----- header).`);
   }
   return pem;
+}
+
+/**
+ * Parses the service keypair, rather than trusting that it looks like one.
+ *
+ * A PEM that survived one unescape too many still carries its `-----BEGIN`
+ * header, so a header check calls it good and the deployment comes up
+ * "healthy" — then every client assertion fails to sign and every business
+ * fails to connect, with nothing in the logs pointing back here. Parsing costs
+ * microseconds once at startup and turns that into a refusal to start hosted
+ * mode at all.
+ */
+function assertUsableIdentity(service: ServiceIdentity): void {
+  try {
+    createPrivateKey(service.privateKey);
+  } catch (error) {
+    throw new Error(
+      `REVOLUT_SERVICE_PRIVATE_KEY is not a usable private key: ${
+        error instanceof Error ? error.message : error
+      }. If it was set from a shell or an API, check that its newlines survived — a stray backslash at each line end is the usual cause.`
+    );
+  }
+  try {
+    // eslint-disable-next-line no-new
+    new X509Certificate(service.certificate);
+  } catch (error) {
+    throw new Error(
+      `REVOLUT_SERVICE_CERTIFICATE is not a usable X.509 certificate: ${
+        error instanceof Error ? error.message : error
+      }. Businesses paste this into their Revolut portal, so a mangled one breaks every connection.`
+    );
+  }
 }
 
 export interface HostedOptions {
@@ -74,6 +120,7 @@ export async function createHostedRuntime(
       certificate: readPem(env.REVOLUT_SERVICE_CERTIFICATE, 'REVOLUT_SERVICE_CERTIFICATE'),
       redirectUri: options.callbackUri,
     };
+    assertUsableIdentity(service);
 
     // A database hiccup must not leave the process crashing on every idle-client
     // drop, and a failure to initialise must not take the whole server down.
