@@ -115,9 +115,12 @@ const STYLE = `
   a { color:var(--accent); }
 `;
 
+// Settings → APIs, already on the Business API tab. The path is plural and the
+// tab matters: /settings/api (singular) is not a page, and without the tab the
+// Merchant API can be showing instead, which has no certificate to add.
 const PORTALS = {
-  production: 'https://business.revolut.com/settings/api',
-  sandbox: 'https://sandbox-business.revolut.com/settings/api',
+  production: 'https://business.revolut.com/settings/apis?tab=business-api',
+  sandbox: 'https://sandbox-business.revolut.com/settings/apis?tab=business-api',
 } as const;
 
 export function renderConnectPage(options: ConnectPageOptions): string {
@@ -181,6 +184,11 @@ export function renderConnectPage(options: ConnectPageOptions): string {
       <div class="indent">
         <p><a class="btn" id="portal" href="${PORTALS.production}" target="_blank" rel="noopener noreferrer">
           Open Revolut API settings ↗</a></p>
+        <p class="hintline">If that doesn't land you on the API page: from the Revolut Business
+          home, click your <strong>profile icon</strong>, then <strong>Settings</strong>, then
+          <strong>APIs</strong>, and pick the <strong>Business API</strong> tab.
+          Seeing <em>“Verify identity”</em> instead of a certificate form means Revolut has not
+          finished verifying the business yet — the API is only available once it has.</p>
 
         <label for="cert">X509 public key — paste into the big box</label>
         <div class="copy">

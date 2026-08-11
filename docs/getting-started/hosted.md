@@ -11,7 +11,11 @@ stored against that business alone.
 
 ## Connecting as a business
 
-You need a Revolut Business account and access to **Settings → APIs** on it (Owner or Admin).
+You need a Revolut Business account and access to **Settings → APIs** on it (Owner or Admin), and
+the business has to be **fully verified**. If that page shows a *Verify identity* card where the
+certificate form should be, Revolut has not finished verifying the business and there are no API
+credentials to get yet — that is a Revolut onboarding step, and nothing here can proceed until it
+is done.
 
 1. **Add the connector.** In Claude: Settings → Connectors → *Add custom connector* → paste
    `https://revolut-mcp-coolify.bogdanripa.com/mcp`. Leave client ID and secret empty; the server
@@ -20,7 +24,9 @@ You need a Revolut Business account and access to **Settings → APIs** on it (O
 
 2. **Register the certificate.** Your assistant sends you to the connect page. It shows this
    deployment's public X.509 certificate and the redirect URI, both with copy buttons, and
-   deep-links to your Revolut API settings. In Revolut, click *Add API certificate* and paste:
+   deep-links to your Revolut API settings. If the deep link doesn't land on the API page, navigate
+   by hand: from the Revolut Business home, click your **profile icon**, then **Settings**, then
+   **APIs**. Click *Add API certificate* and paste:
 
    | Revolut field | Value |
    | --- | --- |

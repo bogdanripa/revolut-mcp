@@ -27,6 +27,10 @@
   <p>You need a <strong>Revolut Business</strong> account (this is the business API — personal
     Revolut accounts are not supported) and enough access on it to reach
     <em>Settings → APIs</em>. That is normally an Owner or Admin.</p>
+  <p>The account also has to be <strong>fully verified</strong>. If Settings → APIs shows a
+    <em>Verify identity</em> card where the certificate form should be, Revolut has not finished
+    verifying the business and no API credentials exist yet. Finish that with Revolut first;
+    nothing here can proceed until it is done.</p>
 
   <h2>1. Add the connector to your assistant</h2>
   <p>The connector URL is this deployment's MCP endpoint:</p>
@@ -44,8 +48,10 @@
     Revolut form.</p>
   <ol class="steps">
     <li><strong>Open Revolut → Settings → APIs.</strong>
-      <p>The connect page has a button that takes you straight there, for production or sandbox.
-      Click <em>Add API certificate</em>.</p>
+      <p>The connect page has a button that takes you straight to <code>Settings → APIs</code> on the <em>Business API</em> tab, for production or sandbox.
+      If it doesn't land on the API page, navigate by hand: from the Revolut Business home, click
+      your <strong>profile icon</strong>, then <strong>Settings</strong>, then <strong>APIs</strong>.
+      Then click <em>Add API certificate</em>.</p>
     </li>
     <li><strong>Paste the X509 public key.</strong>
       <p>Copy it from the connect page — it is this deployment's public certificate. It is public by
