@@ -14,8 +14,16 @@ stored against that business alone.
 You need a Revolut Business account and access to **Settings → APIs** on it (Owner or Admin), and
 the business has to be **fully verified**. If that page shows a *Verify identity* card where the
 certificate form should be, Revolut has not finished verifying the business and there are no API
-credentials to get yet — that is a Revolut onboarding step, and nothing here can proceed until it
-is done.
+credentials to get yet — nothing here can proceed until it is done.
+
+That card explains the block but is not where you clear it. Verification is part of Revolut's own
+onboarding: look for the outstanding steps on the Business home screen or in the Revolut Business
+mobile app, and check your email — Revolut writes to you when it needs something. The KYB checks
+ask for a national ID and a video selfie for you, the certificate of incorporation or business
+registration, a description of the business activity, and ID for each director and shareholder
+above 25%. Revolut aims to review within about 24 hours; complex applications take longer. See
+[Revolut's list of required documents](https://help.revolut.com/business/help/setting-up-an-account/onboarding/additional-information-needed-for-onboarding/).
+A [sandbox account](https://sandbox-business.revolut.com/) needs none of this and takes minutes.
 
 1. **Add the connector.** In Claude: Settings → Connectors → *Add custom connector* → paste
    `https://revolut-mcp-coolify.bogdanripa.com/mcp`. Leave client ID and secret empty; the server

@@ -161,11 +161,17 @@ export function renderConnectPage(options: ConnectPageOptions): string {
     <p><strong>First: your Revolut Business account must be fully verified.</strong>
       If Settings → APIs shows a <em>Verify identity</em> card instead of an
       <em>API certificates</em> list, Revolut has not finished checking the business and no API
-      access exists yet — there is nothing to connect until it has. Click that card and complete
-      the document checks Revolut asks for (company details, proof of identity for the owners and
-      directors); approval is Revolut's to give and can take a few days. A
-      <a href="https://sandbox-business.revolut.com/" target="_blank" rel="noopener noreferrer">sandbox
-      account</a> needs none of this and can be set up in minutes if you only want to try it out.</p>
+      access exists yet — there is nothing to connect until it has.</p>
+    <p>That card explains the block; it is not where you clear it. Verification is part of Revolut's
+      own onboarding — look for the outstanding steps on the Revolut Business home screen or in the
+      Revolut Business mobile app, and check your email, since Revolut writes to you when it needs
+      something. It asks for a national ID and a video selfie for you, the certificate of
+      incorporation or business registration, a description of what the business does, and ID for
+      each director and shareholder above 25%; review usually takes about a day.
+      <a href="https://help.revolut.com/business/help/setting-up-an-account/onboarding/additional-information-needed-for-onboarding/"
+         target="_blank" rel="noopener noreferrer">Revolut's list of what's needed ↗</a></p>
+    <p>A <a href="https://sandbox-business.revolut.com/" target="_blank" rel="noopener noreferrer">sandbox
+      account</a> needs none of this and takes minutes, if you only want to try it out.</p>
   </div>
 
   <form method="post" action="/authorize" id="connect">
